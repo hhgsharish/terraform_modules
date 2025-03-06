@@ -1,4 +1,4 @@
-resource "aws_vpc" "main" {
+resource "aws_vpc" "my-vpc" {
   cidr_block = var.vpc_cidr
 
   tags = {
@@ -6,8 +6,33 @@ resource "aws_vpc" "main" {
   }
 }
 
+resource "aws_subnet" "my-subnet" {
+  vpc_id = aws_vpc.my-vpc.id
+  cidr_block = "10.0.0.0/24"
+  availability_zone = "us-east-2a"
+  map_public_ip_on_launch = true
+}
+
+resource "aws_internet_gateway" "igw" {
+  vpc_id = aws_vpc.my-vpc.id
+}
+resource "aws_route_table" "my-rt" {
+  vpc_id =  aws_vpc.my-vpc.id
+  
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.igw.id
+  }
+}
+
+resource "aws_route_table_association" "rta1" {
+  subnet_id = aws_subnet.my-subnet.id
+  route_table_id = aws_route_table.my-rt.id
+}
+
+
 resource "aws_security_group" "allow_ssh_http" {
-  vpc_id = aws_vpc.main.id
+  vpc_id = aws_vpc.my-vpc.id
 
   ingress {
     from_port   = 22
@@ -39,7 +64,7 @@ resource "aws_instance" "web" {
   ami                    = var.ami_id
   instance_type          = var.instance_type
   vpc_security_group_ids = [aws_security_group.allow_ssh_http.id]
-
+  subnet_id = aws_subnet.my-subnet.id
   tags = {
     Name = "${terraform.workspace}-instance"
   }
